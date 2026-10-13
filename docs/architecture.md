@@ -168,7 +168,7 @@ flowchart LR
 
 1. 把「後端模式」從 `mock` 改成 `supabase`。
 2. 補上 Supabase 的設定（步驟如下）。
-3. 在 GitHub 設定兩個網址與公開金鑰（見第 8 段），重新發布。
+3. 在 GitHub 設定三個變數：`VITE_BACKEND=supabase`、專案網址、公開金鑰（見第 8 段），重新發布。
 
 **Supabase 的設定步驟（概念層級）**
 
@@ -178,9 +178,18 @@ flowchart LR
 4. 把 `messages` 加入 Realtime 的發布清單，讓它能在新增、刪除時通知大家。
 5. 建立圖片櫃 `chat-images`：公開讀取、單檔 5 MB、只允許 JPG、PNG、GIF、WebP，只有登入（含匿名）的人可以上傳，且只能刪自己上傳的檔案。
 6. 部署清理用的 Edge Function，並設定每天執行一次。
-7. 到專案設定頁複製「專案網址」和「公開金鑰」（見第 8 段）。
+7. 到網頁的 Connect 視窗或 Settings → API Keys 頁複製「專案網址」和「公開金鑰」（見第 8 段）。
 
 這些設定會寫成「遷移檔」（migration，一份份記錄資料庫怎麼建立的腳本），放在 repo 的 `supabase/` 資料夾，重建環境時可以照著重做。
+
+**實際做法（不使用 Supabase CLI）：** 遷移檔是 SQL 檔案，在 Supabase 網頁的 SQL Editor 貼上並執行；清理用的 Edge Function 在網頁的編輯器貼上並部署。細節見 [`supabase/README.md`](../supabase/README.md)。
+
+**實作時和上面概念不同的地方：**
+
+- 清理函式用網頁編輯器部署時，Supabase 會自動取一個名字（目前是 `super-processor`），而且部署後不能改，所以排程是用實際的網址呼叫，不是假設它叫 `cleanup-expired`。程式碼的資料夾仍叫 `cleanup-expired`。
+- 清理函式不是由登入的使用者呼叫，所以要關掉它的 Verify JWT，改用一組只有排程知道的通關密語（`CLEANUP_TOKEN`）保護，密語不對一律拒絕。
+- 圖片檔案多了一支只有管理身分能呼叫的 `expired_chat_images` 函式，用來列出超過 30 天的圖片（包含沒有對應訊息的殘留檔案）。
+- 每個身分的頻率限制在資料庫裡是 0.8 秒（規格是 1 秒），多留一點網路延遲的空間，避免誤擋。
 
 ### 4.3 讓前端「不用整個重寫」的設計
 
@@ -238,7 +247,7 @@ flowchart TB
 | `presence.leave` | 有人斷線或被判定離開 | 一位「在線成員」 | Presence 的 leave（前端再延遲約 10 秒才顯示，見第 6 段） |
 | `user.left` | 有人按了「離開」 | `session_id`、`nickname` | Broadcast，事件名 `user_left` |
 | `connection.status` | 連線狀態改變 | `connected`、`reconnecting`、`disconnected` 其中之一 | Realtime 連線狀態 |
-| `session.kicked` | 進入後才發現代號被別人先搶走（第 6.1 段第 6 步），要回到輸入畫面 | `reason`：`nickname_taken` | 前端比對名單後自己產生（階段一的假後端已實作；階段二要在同樣的位置觸發） |
+| `session.kicked` | 進入後才發現代號被別人先搶走（第 6.1 段第 6 步），要回到輸入畫面 | `reason`：`nickname_taken` | 前端比對名單後自己產生（假後端與 Supabase 後端都已實作） |
 
 頻道名稱：整個網站只有一個聊天室，只用一個頻道 `room:main`。
 
@@ -442,8 +451,8 @@ sequenceDiagram
 | 名稱 | 白話說明 | 能做什麼 | 能不能公開 |
 |---|---|---|---|
 | **專案網址**（Project URL） | Supabase 替你的專案分配的網址 | 告訴程式要連去哪裡 | ✅ 可以公開，本身不是機密 |
-| **公開金鑰**（anon key，新版介面可能叫 publishable key） | 給「一般使用者的瀏覽器」用的金鑰，權限最低 | 只能做資料庫規則（RLS）允許的事 | ✅ **設計上就是要公開的**，會被打包進網頁，任何人用瀏覽器都能看到。安全靠的是資料庫的規則，而不是藏起金鑰 |
-| **管理金鑰**（service_role key，新版介面可能叫 secret key） | 管理員級別，**可以繞過所有資料庫規則**，讀寫、刪除任何資料 | 什麼都能做 | ❌ **絕對不能公開**：不能放進前端、不能 commit 到 GitHub、不能貼在聊天或截圖 |
+| **公開金鑰**（Publishable key，`sb_publishable_` 開頭；舊名 anon key，預計 2026 年底停用） | 給「一般使用者的瀏覽器」用的金鑰，權限最低 | 只能做資料庫規則（RLS）允許的事 | ✅ **設計上就是要公開的**，會被打包進網頁，任何人用瀏覽器都能看到。安全靠的是資料庫的規則，而不是藏起金鑰 |
+| **管理金鑰**（Secret key，`sb_secret_` 開頭；舊名 service_role key） | 管理員級別，**可以繞過所有資料庫規則**，讀寫、刪除任何資料 | 什麼都能做 | ❌ **絕對不能公開**：不能放進前端、不能 commit 到 GitHub、不能貼在聊天或截圖 |
 | **資料庫密碼**（Database password） | 建立專案時設定的資料庫登入密碼 | 直接連到資料庫 | ❌ **絕對不能公開** |
 
 **這個專案的前端只需要「專案網址」和「公開金鑰」兩個。** 管理金鑰與資料庫密碼，前端完全用不到。清理過期資料的 Edge Function 需要管理能力，但 Supabase 會在它執行的環境裡自動提供，**不需要我們另外複製管理金鑰到任何地方**。
@@ -451,8 +460,8 @@ sequenceDiagram
 ### 8.2 怎麼產生
 
 1. 登入 Supabase，建立專案。
-2. 專案建立後，到「Project Settings」（專案設定）裡的「API」頁面：
-   - 會看到專案網址和公開金鑰，複製這兩個。
+2. 專案建立後，點專案頁上方的 **Connect** 按鈕，或到「Project Settings」（專案設定）裡的 **API Keys** 頁面：
+   - 會看到專案網址（Project URL）和公開金鑰（Publishable key），複製這兩個。
    - 同一頁也會有管理金鑰，**不要複製**，也不要點開來截圖。
 3. 資料庫密碼是建立專案時自己設定的，請存在密碼管理工具裡，不要寫進專案。
 
@@ -462,7 +471,7 @@ sequenceDiagram
 |---|---|---|
 | 自己的電腦開發時 | 專案根目錄的 `.env.local` 檔案 | 這是放「環境變數」（程式啟動時才讀入的設定值）的檔案，**只存在自己的電腦，不上傳** |
 | 讓別人知道要設定哪些 | 專案根目錄的 `.env.example` 檔案 | 只寫變數名稱和假的範例值，**會上傳**，等於「填空題」 |
-| GitHub 自動打包時 | GitHub repo 設定中的 Actions Variables | 路徑：repo 的「Settings → Secrets and variables → Actions → Variables」。階段二加入 `VITE_SUPABASE_URL` 和 `VITE_SUPABASE_ANON_KEY` |
+| GitHub 自動打包時 | GitHub repo 設定中的 Actions Variables | 路徑：repo 的「Settings → Secrets and variables → Actions → Variables」。階段二加入 `VITE_BACKEND`（填 `supabase`）、`VITE_SUPABASE_URL` 和 `VITE_SUPABASE_PUBLISHABLE_KEY` |
 
 要注意：就算存在 GitHub Variables，打包後的網頁裡仍然看得到公開金鑰（因為瀏覽器需要它才能運作）。**這不是問題，因為它本來就是公開用的。**真正需要保密的是管理金鑰與資料庫密碼，它們不會出現在這條流程的任何地方。
 
@@ -487,7 +496,7 @@ sequenceDiagram
 | 可能的狀況 | 前端怎麼擋 | 伺服器端（階段二）怎麼補強 |
 |---|---|---|
 | 超長文字 | 輸入框字數計數，超過 500 字不能送 | 資料表規定文字不得超過 500 字 |
-| 一直狂送 | 距離上一則不到 1 秒就不送並提示 | 資料庫觸發器限制同一個身分每秒最多 1 則 |
+| 一直狂送 | 距離上一則不到 1 秒就不送並提示 | 資料庫觸發器限制同一個身分每 0.8 秒最多 1 則 |
 | 同一個詞洗版（一則裡重複超過 10 次） | 送出前檢測，擋下並提示 | 同樣的判斷在觸發器再做一次 |
 | 連續送相同內容（30 秒內第 6 則起） | 送出前比對最近送出的內容，擋下並提示 | 觸發器比對該身分最近的訊息 |
 | 在訊息裡塞 HTML 或 script（想讓別人的畫面執行惡意程式，這種攻擊叫 XSS） | **訊息一律當純文字顯示**，由 React 自動處理成安全的文字；絕不使用「把字串當 HTML 插入」的寫法 | 無需（顯示端負責） |
@@ -572,14 +581,19 @@ phoon-chat/
 │  ├─ utils/                 小工具（產生編號、時間格式、瀏覽器儲存）
 │  └─ styles/                樣式與深淺色的 CSS 變數（內容由 /design 決定）
 ├─ public/                   不需處理的靜態檔案（網站圖示等）
-├─ supabase/                 （階段二）資料庫與後端的設定
-│  ├─ migrations/            資料表、RLS 規則、觸發器、圖片櫃設定
+├─ supabase/                 （階段二）資料庫與後端的設定（SQL 與函式程式碼，手動貼到網頁執行）
+│  ├─ README.md              怎麼套用這些設定（不使用 CLI）
+│  ├─ migrations/            資料表、RLS 規則、觸發器、圖片櫃、清理排程
 │  └─ functions/
 │     └─ cleanup-expired/    每日清理 30 天前的訊息與圖片
+├─ scripts/
+│  └─ check-supabase.mjs     用公開金鑰實際檢查資料庫與圖片櫃的規則（npm run check:supabase）
 ├─ .github/
 │  └─ workflows/
 │     └─ deploy.yml          自動打包並發布到 GitHub Pages 的流程
 ├─ .env.example              環境變數的「填空題」，只有假值（會上傳）
+├─ .env.mock                 用假後端執行的設定，只有 VITE_BACKEND=mock（會上傳）
+├─ .env.local                本機真正的設定（專案網址與公開金鑰），不會上傳
 ├─ .gitignore                不要上傳的檔案清單（含 .env.local）
 ├─ index.html                網頁的外殼
 ├─ package.json              專案資訊與用到的套件清單
@@ -616,7 +630,7 @@ phoon-chat/
 | | 階段一 | 階段二 |
 |---|---|---|
 | 後端模式設定 | `VITE_BACKEND=mock` | `VITE_BACKEND=supabase` |
-| 需要的 GitHub Variables | 不需要 | `VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY` |
+| 需要的 GitHub Variables | 不需要（沒設定時預設就是 `mock`） | `VITE_BACKEND`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY` |
 | 看到的效果 | 單機示範版，有機器人與分頁間互聊 | 真正多人即時聊天室 |
 
 ---
@@ -677,7 +691,7 @@ phoon-chat/
 **設定與金鑰**
 - [ ] 專案 repo 與 GitHub 歷史紀錄中搜尋不到管理金鑰或資料庫密碼
 - [ ] `.env.local` 沒有被提交；`.env.example` 只有假值
-- [ ] GitHub 上有 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY`，網站正常連線
+- [ ] GitHub 上有 `VITE_BACKEND`、`VITE_SUPABASE_URL` 與 `VITE_SUPABASE_PUBLISHABLE_KEY`，網站正常連線
 - [ ] 匿名登入已開啟；使用者完全沒有看到登入畫面
 
 **多裝置即時聊天（兩台裝置）**
@@ -685,7 +699,7 @@ phoon-chat/
 - [ ] 一台使用中的代號，另一台無法再用（含大小寫不同）
 - [ ] 兩台幾乎同時搶同一代號，只有一台成功，另一台被送回進入畫面並看到說明
 - [ ] 一台刪除自己的訊息，另一台的畫面立即消失；對方的訊息無法刪除
-- [ ] 圖片訊息被刪除後，圖片網址已不能開啟
+- [ ] 圖片訊息被刪除後，檔案已經不存在；原本的網址可能因為各地的快取，最多 5 分鐘內還打得開，之後就打不開
 
 **進出與名單**
 - [ ] 加入時另一台立刻看到「加入了聊天室」，在線名單即時增加

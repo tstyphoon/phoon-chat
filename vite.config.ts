@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    // 一般測試一律用假後端，不連真正的 Supabase（連線測試見 npm run test:live）
+    env: { VITE_BACKEND: 'mock' },
   },
 });

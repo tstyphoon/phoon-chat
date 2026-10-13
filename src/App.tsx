@@ -32,7 +32,6 @@ export default function App() {
 function Chatroom({ service }: { service: ChatService }) {
   const theme = useTheme();
   const sound = useSound();
-  const [savedNickname] = useState(() => readStorage(STORAGE_KEYS.nickname) ?? '');
 
   // 頁面在背景時：分頁標題顯示未讀數，有開提示音就播放
   const [active, setActive] = useState(false);
@@ -48,7 +47,8 @@ function Chatroom({ service }: { service: ChatService }) {
   if (!inChat) {
     return (
       <JoinScreen
-        initialNickname={savedNickname}
+        // 每次回到輸入畫面都重新讀取，按「離開」或被請回來之後，代號也會預先填好
+        initialNickname={readStorage(STORAGE_KEYS.nickname) ?? ''}
         error={chat.joinError}
         busy={chat.phase === 'joining'}
         themeMode={theme.mode}

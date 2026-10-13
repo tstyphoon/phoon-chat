@@ -34,12 +34,13 @@ jobs:
 
       - run: npm run build
         env:
-          # 階段一用假後端。階段二到 repo 的 Settings → 左邊的 Secrets and variables → Actions，
-          # 切到 Variables 分頁，新增 VITE_BACKEND（填 supabase）、VITE_SUPABASE_URL、VITE_SUPABASE_ANON_KEY。
-          # 這三個都是可以公開的設定值；管理金鑰與資料庫密碼絕對不要放在這裡。
+          # 沒設定 VITE_BACKEND 時用假後端（階段一）。階段二在 repo 的 Settings → 左邊的
+          # Secrets and variables → Actions → Variables 分頁設定這三個：
+          # VITE_BACKEND（填 supabase）、VITE_SUPABASE_URL、VITE_SUPABASE_PUBLISHABLE_KEY。
+          # 這三個都是可以公開的值；管理金鑰與資料庫密碼絕對不要放在這裡。
           VITE_BACKEND: ${{ vars.VITE_BACKEND || 'mock' }}
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

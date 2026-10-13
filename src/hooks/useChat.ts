@@ -22,6 +22,16 @@ interface Options {
   onIncoming?: (message: Message) => void;
 }
 
+/** 同一個瀏覽器（同一個 user_id）同時只算一個人：重新整理後舊連線會殘留一小段時間，只留最新的 */
+function uniqueByUser(list: PresenceMember[]): PresenceMember[] {
+  const byUser = new Map<string, PresenceMember>();
+  for (const member of list) {
+    const existing = byUser.get(member.user_id);
+    if (!existing || existing.joined_at < member.joined_at) byUser.set(member.user_id, member);
+  }
+  return [...byUser.values()];
+}
+
 function mergeMessages(current: Message[], incoming: Message[]): Message[] {
   const byId = new Map<string, Message>();
   for (const message of current) byId.set(message.id, message);
@@ -57,6 +67,12 @@ export function useChat(service: ChatService, options: Options = {}) {
   const leaveTimers = useRef(new Map<string, { userId: string; timer: ReturnType<typeof setTimeout> }>());
   const leftSessions = useRef(new Set<string>());
   const loadingOlderRef = useRef(false);
+  /** 目前名單的即時副本，事件處理函式要同步判斷「這個人還在不在名單裡」時使用 */
+  const membersRef = useRef<PresenceMember[]>([]);
+  const updateMembers = useCallback((update: (previous: PresenceMember[]) => PresenceMember[]) => {
+    membersRef.current = update(membersRef.current);
+    setMembers(membersRef.current);
+  }, []);
 
   const addNotice = useCallback((type: Notice['type'], nickname: string) => {
     setNotices((previous) => [...previous, { id: newId(), type, nickname, at: Date.now() }].slice(-200));
@@ -72,6 +88,7 @@ export function useChat(service: ChatService, options: Options = {}) {
     });
     setMessages([]);
     setNotices([]);
+    membersRef.current = [];
     setMembers([]);
     setMe(null);
     setHasMore(false);
@@ -103,22 +120,23 @@ export function useChat(service: ChatService, options: Options = {}) {
         leaveTimers.current.forEach((entry) => clearTimeout(entry.timer));
         leaveTimers.current.clear();
         leftSessions.current.clear();
-        setMembers(list);
+        updateMembers(() => uniqueByUser(list));
       }),
 
       service.on('presence.join', (member) => {
         leftSessions.current.delete(member.session_id);
-        // 同一個人短暫斷線又回來：取消「離開」，也不顯示「加入」
-        let reconnected = false;
+        // 同一個人換了新連線（短暫斷線又回來、或重新整理）：取消舊連線的「離開」，也不顯示「加入」
+        let reconnected = membersRef.current.some(
+          (item) => item.user_id === member.user_id && item.session_id !== member.session_id,
+        );
         leaveTimers.current.forEach((entry, sessionId) => {
           if (entry.userId === member.user_id) {
             clearTimeout(entry.timer);
             leaveTimers.current.delete(sessionId);
             reconnected = true;
-            setMembers((previous) => previous.filter((item) => item.session_id !== sessionId));
           }
         });
-        setMembers((previous) => [...previous.filter((item) => item.session_id !== member.session_id), member]);
+        updateMembers((previous) => [...previous.filter((item) => item.user_id !== member.user_id), member]);
         if (!reconnected) addNotice('joined', member.nickname);
       }),
 
@@ -126,9 +144,11 @@ export function useChat(service: ChatService, options: Options = {}) {
         // 已經按「離開」處理過的人，後面又來的斷線事件不重複顯示
         if (leftSessions.current.has(member.session_id)) return;
         if (leaveTimers.current.has(member.session_id)) return;
+        // 已經被同一個人的新連線取代的舊連線，不用處理
+        if (!membersRef.current.some((item) => item.session_id === member.session_id)) return;
         const timer = setTimeout(() => {
           leaveTimers.current.delete(member.session_id);
-          setMembers((previous) => previous.filter((item) => item.session_id !== member.session_id));
+          updateMembers((previous) => previous.filter((item) => item.session_id !== member.session_id));
           addNotice('left', member.nickname);
         }, CONFIG.presence.leaveGraceMs);
         leaveTimers.current.set(member.session_id, { userId: member.user_id, timer });
@@ -143,7 +163,7 @@ export function useChat(service: ChatService, options: Options = {}) {
           clearTimeout(waiting.timer);
           leaveTimers.current.delete(session_id);
         }
-        setMembers((previous) => previous.filter((item) => item.session_id !== session_id));
+        updateMembers((previous) => previous.filter((item) => item.session_id !== session_id));
         addNotice('left', nickname);
       }),
 
@@ -158,7 +178,7 @@ export function useChat(service: ChatService, options: Options = {}) {
     return () => {
       offs.forEach((off) => off());
     };
-  }, [service, addNotice, resetChat]);
+  }, [service, addNotice, resetChat, updateMembers]);
 
   // 關掉元件時清掉計時器
   useEffect(() => {
