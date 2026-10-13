@@ -238,6 +238,7 @@ flowchart TB
 | `presence.leave` | 有人斷線或被判定離開 | 一位「在線成員」 | Presence 的 leave（前端再延遲約 10 秒才顯示，見第 6 段） |
 | `user.left` | 有人按了「離開」 | `session_id`、`nickname` | Broadcast，事件名 `user_left` |
 | `connection.status` | 連線狀態改變 | `connected`、`reconnecting`、`disconnected` 其中之一 | Realtime 連線狀態 |
+| `session.kicked` | 進入後才發現代號被別人先搶走（第 6.1 段第 6 步），要回到輸入畫面 | `reason`：`nickname_taken` | 前端比對名單後自己產生（階段一的假後端已實作；階段二要在同樣的位置觸發） |
 
 頻道名稱：整個網站只有一個聊天室，只用一個頻道 `room:main`。
 
@@ -567,7 +568,8 @@ phoon-chat/
 │  │  ├─ chatService.ts      「聊天服務介面」約定（第 4.3 段）
 │  │  ├─ mock/               階段一：假後端（含機器人、分頁間通訊）
 │  │  └─ supabase/           階段二：Supabase 後端
-│  ├─ hooks/                 可重複使用的畫面邏輯（捲動、未讀數、主題…）
+│  ├─ hooks/                 可重複使用的畫面邏輯（聊天室狀態 useChat、主題、提示音、未讀數）
+│  ├─ utils/                 小工具（產生編號、時間格式、瀏覽器儲存）
 │  └─ styles/                樣式與深淺色的 CSS 變數（內容由 /design 決定）
 ├─ public/                   不需處理的靜態檔案（網站圖示等）
 ├─ supabase/                 （階段二）資料庫與後端的設定

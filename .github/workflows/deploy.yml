@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+# 每次推送到 main，自動：安裝套件 → 跑規則測試 → 打包 → 發布到 GitHub Pages。
+# 第一次使用前，要到 repo 的 Settings → Pages → Build and deployment → Source，選「GitHub Actions」。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run build
+        env:
+          # 階段一用假後端。階段二到 repo 的 Settings → 左邊的 Secrets and variables → Actions，
+          # 切到 Variables 分頁，新增 VITE_BACKEND（填 supabase）、VITE_SUPABASE_URL、VITE_SUPABASE_ANON_KEY。
+          # 這三個都是可以公開的設定值；管理金鑰與資料庫密碼絕對不要放在這裡。
+          VITE_BACKEND: ${{ vars.VITE_BACKEND || 'mock' }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

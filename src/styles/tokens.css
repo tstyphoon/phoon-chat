@@ -1,0 +1,125 @@
+/* 設計變數（docs/design.md 第 2 段）。深淺色只靠切換這組變數。 */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0f1318;
+  --panel: #131820;
+  --card: #171c24;
+  --field: #1f2630;
+  --line: #222b37;
+  --line-strong: #2a3340;
+  --line-input: #3a4656;
+
+  --text: #e8edf3;
+  --text-2: #b4bfcc;
+  --muted: #8b97a8;
+
+  --accent: #5ec8d8;
+  --on-accent: #06222a;
+  --accent-text: #7fd1e0;
+  --link: #7fd1e0;
+  --link-hover: #a8e3ee;
+
+  --own-bg: #16323a;
+  --own-muted: #9fb6be;
+  --online: #5bd68a;
+
+  --err-bg: #3a1f24;
+  --err-text: #f6a3a5;
+  --err-line: #e8707a;
+  --warn-bg: #3b3012;
+  --warn-text: #f2d27a;
+  --warn-counter: #f2b880;
+
+  --danger-line: #5a3036;
+  --danger-text: #f0878a;
+  --danger-solid: #e8707a;
+  --on-danger: #1a0a0c;
+
+  --disabled-bg: #2a3340;
+  --disabled-text: #6f7b8c;
+
+  --overlay: rgba(6, 9, 12, 0.92);
+  --scrim: rgba(6, 9, 12, 0.6);
+  --shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+
+  --nick-1: #7fd1e0;
+  --nick-2: #f2b880;
+  --nick-3: #f29bb0;
+  --nick-4: #b9a6f2;
+  --nick-5: #8fdda8;
+  --nick-6: #e6d27a;
+
+  --image-bg: #1f2630;
+  --segment-on: #1f2630;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --card: #ffffff;
+  --field: #ffffff;
+  --line: #dce2ea;
+  --line-strong: #dce2ea;
+  --line-input: #c5ceda;
+
+  --text: #18202b;
+  --text-2: #3e4959;
+  --muted: #5b6778;
+
+  --accent: #0e7f92;
+  --on-accent: #ffffff;
+  --accent-text: #0e7f92;
+  --link: #0b6e80;
+  --link-hover: #08515f;
+
+  --own-bg: #ddf1f5;
+  --own-muted: #3e4959;
+  --online: #1f9d55;
+
+  --err-bg: #fdecea;
+  --err-text: #b3261e;
+  --err-line: #c0392b;
+  --warn-bg: #fff4d6;
+  --warn-text: #7a5a00;
+  --warn-counter: #a15c10;
+
+  --danger-line: #e3b4b0;
+  --danger-text: #b3261e;
+  --danger-solid: #c0392b;
+  --on-danger: #ffffff;
+
+  --disabled-bg: #e3e8ef;
+  --disabled-text: #8794a6;
+
+  --overlay: rgba(6, 9, 12, 0.92);
+  --scrim: rgba(24, 32, 43, 0.45);
+  --shadow: 0 4px 14px rgba(24, 32, 43, 0.25);
+
+  --nick-1: #0e7f92;
+  --nick-2: #a15c10;
+  --nick-3: #b63a62;
+  --nick-4: #6a4fc2;
+  --nick-5: #1f7a45;
+  --nick-6: #7a6a0a;
+
+  --image-bg: #e3e8ef;
+  --segment-on: #ddf1f5;
+}
+
+:root {
+  --font-body: 'Noto Sans TC', system-ui, -apple-system, 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-brand: 'Space Grotesk', 'Noto Sans TC', system-ui, sans-serif;
+
+  --radius-input: 14px;
+  --radius-button: 12px;
+  --radius-pill: 22px;
+  --radius-image: 12px;
+
+  --touch: 44px;
+  --sidebar-width: 280px;
+}
