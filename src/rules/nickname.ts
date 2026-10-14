@@ -2,12 +2,12 @@ import { CONFIG } from '../config';
 
 export type NicknameCheck = { ok: true; nickname: string } | { ok: false; message: string };
 
-/** 算「看起來幾個字」，一個 emoji 算一個字 */
+/**
+ * 算字數，算法和資料庫的 char_length 一樣（一個字元算一個，不是「看起來幾個字」）。
+ * 一般的字與 emoji 算一個；組合 emoji（例如家庭 👨‍👩‍👧‍👦）由好幾個字元組成，會算成好幾個。
+ * 前端若算得比資料庫寬鬆，通過前端卻被資料庫拒絕，之後每則訊息都會送不出去。
+ */
 export function countChars(text: string): number {
-  if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
-    const segmenter = new Intl.Segmenter('zh-Hant', { granularity: 'grapheme' });
-    return Array.from(segmenter.segment(text)).length;
-  }
   return Array.from(text).length;
 }
 

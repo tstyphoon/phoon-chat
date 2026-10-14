@@ -55,7 +55,7 @@ export function describeSendError(error: unknown): string {
 /** 進入聊天室時連不上的原因 */
 export function describeJoinError(error: unknown): string {
   const { status } = asErrorLike(error);
-  if (status === 429) return '現在太多人同時進入，請過一分鐘再試一次';
+  if (status === 429) return '現在太多人同時進入，請稍後再試一次';
   if (isNetworkError(error)) return '連不上聊天室，請檢查網路後再試一次';
   return '暫時無法進入聊天室，請稍後再試一次';
 }

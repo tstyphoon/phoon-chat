@@ -19,6 +19,15 @@ describe('代號規則', () => {
     expect(validateNickname('🐱貓貓').ok).toBe(true);
   });
 
+  it('字數算法和資料庫一樣：組合 emoji 由好幾個字元組成，會算成好幾個', () => {
+    const family = '👨‍👩‍👧‍👦';
+    expect(countChars(family)).toBe(7);
+    // 一個家庭 emoji（7）可以，兩個（14）超過 12 字，不會再通過前端卻被資料庫（24 字元）拒絕
+    expect(validateNickname(family).ok).toBe(true);
+    expect(validateNickname(family.repeat(2)).ok).toBe(false);
+    expect(validateNickname(family.repeat(4)).ok).toBe(false);
+  });
+
   it('保留字不能用，不分大小寫', () => {
     for (const word of ['系統', '管理員', 'admin', 'ADMIN', 'Admin ', 'System']) {
       expect(validateNickname(word).ok).toBe(false);
