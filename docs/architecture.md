@@ -578,7 +578,8 @@ phoon-chat/
 │  ├─ requirements.md        需求說明（已有）
 │  ├─ architecture.md        這份文件
 │  ├─ design.md              畫面設計
-│  └─ verification-notes.md  實際測過的項目與結果
+│  ├─ verification-notes.md  實際測過的項目與結果
+│  └─ screenshots/           實測時的畫面截圖（已遮蔽與專案無關的內容）
 ├─ src/                      所有前端程式碼
 │  ├─ main.tsx               程式進入點
 │  ├─ App.tsx                決定現在顯示哪個畫面
@@ -703,7 +704,7 @@ phoon-chat/
 - [ ] 在最底部時新訊息自動捲到底；往上翻時改顯示「有 N 則新訊息 ↓」，點一下跳到底並清掉提示
 
 **其他**
-- [ ] 切到別的分頁時，分頁標題顯示未讀數，回來後清除（2026-10-14 已實測看到「(1) phoon-chat」，回來後清除這一段還沒記錄，見 [`verification-notes.md`](verification-notes.md)）
+- [x] 切到別的分頁時，分頁標題顯示未讀數，回來後清除（2026-10-14 使用者實測：背景時顯示「(1) phoon-chat」，回來後恢復成「phoon-chat」，見 [`verification-notes.md`](verification-notes.md)）
 - [ ] 提示音預設關閉，打開後才在背景收到訊息時響
 - [ ] 深色、淺色、跟隨系統三種都能正常使用，重新整理後仍保持選擇
 - [x] 在手機與電腦上各操作一遍完整流程，沒有橫向捲動，按鈕都按得到（2026-10-14 使用者在電腦與手機實測，見 [`verification-notes.md`](verification-notes.md)）
