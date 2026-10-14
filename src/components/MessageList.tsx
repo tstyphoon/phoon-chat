@@ -125,7 +125,13 @@ export function MessageList({
         result.push({ type: 'notice', key: entry.key, text: entry.text });
         continue;
       }
-      if (group && group.user_id === entry.user_id && entry.time - group.lastTime < CONFIG.ui.groupGapMs) {
+      // 同一個身分換了代號（離開後用新代號重新進入），要另起一組，標題才會顯示新代號
+      if (
+        group &&
+        group.user_id === entry.user_id &&
+        group.nickname === entry.nickname &&
+        entry.time - group.lastTime < CONFIG.ui.groupGapMs
+      ) {
         group.lines.push(entry);
         group.lastTime = entry.time;
       } else {
