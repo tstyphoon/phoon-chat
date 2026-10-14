@@ -149,3 +149,6 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# 課程的評分說明，只放本機，不 commit、不 push
+student-guide.md

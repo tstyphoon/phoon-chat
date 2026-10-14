@@ -546,10 +546,10 @@
 .delete-button:hover {
   background: var(--err-bg);
 }
-/* 電腦：滑鼠移上去（或用鍵盤移到）才出現 */
+/* 電腦：一直顯示（淡一點），滑鼠移上去（或用鍵盤移到）變清楚 */
 @media (hover: hover) {
   .delete-button {
-    opacity: 0;
+    opacity: 0.55;
   }
   .line:hover .delete-button,
   .line:focus-within .delete-button,

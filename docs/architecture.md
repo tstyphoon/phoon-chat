@@ -481,6 +481,7 @@ sequenceDiagram
 
 1. **`.gitignore`**（告訴 git「這些檔案不要追蹤」的清單）一開始就要包含 `.env`、`.env.local`、`.env.*.local`。
 2. 只提交 `.env.example`，裡面的值一律是假的占位字。
+   另外，課程的評分說明 `student-guide.md` 只放在本機，也列在 `.gitignore`，不 commit、不 push。
 3. **原則：任何名字含 `service_role`、`secret`、`password` 的東西，永遠不寫進專案裡的任何檔案。**
 4. 開啟 GitHub 的 **Secret scanning 與 push protection**（GitHub 自動掃描，偵測到金鑰就阻止推送；公開 repo 預設可用）。
 5. **萬一管理金鑰不小心外洩：** 立刻到 Supabase 的 API 設定頁重新產生（rotate）該金鑰，舊的就失效；若資料庫密碼外洩，也到設定頁重設密碼。
@@ -504,6 +505,7 @@ sequenceDiagram
 | 傳非圖片、偽裝成圖片的檔案 | 只接受指定的四種圖片格式，檢查副檔名與檔案實際類型 | 圖片櫃設定只接受這四種格式 |
 | SVG 圖片（SVG 本質是文字，可能內嵌腳本） | 不接受 SVG | 圖片櫃不允許 SVG |
 | 超大圖片 | 超過 5 MB 不上傳 | 圖片櫃設定單檔上限 5 MB |
+| 收到的訊息內容不合格（有人繞過畫面直接寫資料，欄位型別錯誤、種類不明、文字太長、圖片路徑指向別人的資料夾或不是四種圖片格式） | 前端收到別人的訊息（即時收到、載入歷史、斷線後補查都一樣）要**先檢查再顯示**：`id`、`user_id` 要是 UUID；代號要是 1 到 24 字的字串；`kind` 只能是 `text` 或 `image`；文字訊息要有非空白文字、不超過 500 字、不能帶圖片路徑；圖片訊息不能帶文字，路徑必須是 `<送出者的 user_id>/<檔名>.<四種副檔名>`；時間要能解析。**不合格就丟掉，不顯示**（程式在 `src/services/supabase/parseMessage.ts`，有單元測試） | 資料表的規定與觸發器本來就擋得住一般使用者；這一列是第二層防護 |
 | 假冒別人的身分，替別人刪訊息 | 無 | RLS：只能用自己的匿名身分寫入，只能刪自己的訊息與自己上傳的圖片 |
 | 偽造訊息時間 | 無 | 時間一律由伺服器填入 |
 | 不合規的代號（太長、亂碼、保留字） | 進入時用共用規則檢查 | 寫入訊息時，觸發器也檢查代號格式與保留字 |
@@ -576,7 +578,7 @@ phoon-chat/
 │  ├─ services/              後端對接（畫面只透過這裡和後端溝通）
 │  │  ├─ chatService.ts      「聊天服務介面」約定（第 4.3 段）
 │  │  ├─ mock/               階段一：假後端（含機器人、分頁間通訊）
-│  │  └─ supabase/           階段二：Supabase 後端
+│  │  └─ supabase/           階段二：Supabase 後端（含 parseMessage：收到訊息先檢查再顯示）
 │  ├─ hooks/                 可重複使用的畫面邏輯（聊天室狀態 useChat、主題、提示音、未讀數）
 │  ├─ utils/                 小工具（產生編號、時間格式、瀏覽器儲存）
 │  └─ styles/                樣式與深淺色的 CSS 變數（內容由 /design 決定）
@@ -594,7 +596,8 @@ phoon-chat/
 ├─ .env.example              環境變數的「填空題」，只有假值（會上傳）
 ├─ .env.mock                 用假後端執行的設定，只有 VITE_BACKEND=mock（會上傳）
 ├─ .env.local                本機真正的設定（專案網址與公開金鑰），不會上傳
-├─ .gitignore                不要上傳的檔案清單（含 .env.local）
+├─ student-guide.md          課程的評分說明，只放本機（不會上傳）
+├─ .gitignore                不要上傳的檔案清單（含 .env.local、student-guide.md）
 ├─ index.html                網頁的外殼
 ├─ package.json              專案資訊與用到的套件清單
 ├─ vite.config.ts            打包工具設定（含 GitHub Pages 的網址路徑）

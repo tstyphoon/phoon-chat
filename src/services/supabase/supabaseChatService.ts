@@ -25,6 +25,7 @@ import type {
 import { newId, sleep } from '../../utils/id';
 import type { ChatService, Unsubscribe } from '../chatService';
 import { describeJoinError, describeSendError, isRejection } from './errors';
+import { parseMessage } from './parseMessage';
 
 const ROOM_CHANNEL = 'room:main';
 const BUCKET = 'chat-images';
@@ -45,19 +46,6 @@ const IMAGE_EXTENSION: Record<string, string> = {
 };
 
 type Handler = (payload: never) => void;
-
-function toMessage(row: Record<string, unknown>): Message {
-  return {
-    id: String(row.id),
-    user_id: String(row.user_id),
-    nickname: String(row.nickname),
-    kind: row.kind === 'image' ? 'image' : 'text',
-    text: typeof row.text === 'string' ? row.text : null,
-    image_path: typeof row.image_path === 'string' ? row.image_path : null,
-    // 維持資料庫給的原始字串（含微秒），拿來當「往前載入」的起點才不會漏
-    created_at: String(row.created_at),
-  };
-}
 
 function toMember(raw: unknown): PresenceMember | null {
   if (typeof raw !== 'object' || raw === null) return null;
@@ -172,7 +160,7 @@ export class SupabaseChatService implements ChatService {
         if (channel === this.channel) this.handleUserLeft(payload);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        if (channel === this.channel) this.receive(toMessage(payload.new as Record<string, unknown>));
+        if (channel === this.channel) this.receive(parseMessage(payload.new));
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
         if (channel !== this.channel || !this.joined) return;
@@ -265,8 +253,7 @@ export class SupabaseChatService implements ChatService {
       .select(MESSAGE_COLUMNS)
       .single();
     if (error) return this.handleInsertError(id, error);
-    this.acceptOwn(toMessage(data as Record<string, unknown>));
-    return { ok: true };
+    return this.acceptOwn(parseMessage(data));
   }
 
   async sendImage(id: string, file: File): Promise<SendResult> {
@@ -299,8 +286,7 @@ export class SupabaseChatService implements ChatService {
       if (isRejection(error)) await this.safely(() => this.client.storage.from(BUCKET).remove([path]));
       return this.handleInsertError(id, error);
     }
-    this.acceptOwn(toMessage(data as Record<string, unknown>));
-    return { ok: true };
+    return this.acceptOwn(parseMessage(data));
   }
 
   async deleteMessage(id: string): Promise<void> {
@@ -343,32 +329,37 @@ export class SupabaseChatService implements ChatService {
       this.setStatus('reconnecting');
       return { messages: [], hasMore: false };
     }
+    // 格式不合格的訊息直接丟掉，不顯示
     const messages = data
       .slice(0, size)
       .reverse()
-      .map((row) => toMessage(row as Record<string, unknown>));
+      .map((row) => parseMessage(row))
+      .filter((message): message is Message => message !== null);
     for (const message of messages) this.known.set(message.id, message.created_at);
     return { messages, hasMore: data.length > size };
   }
 
   // ---------- 收到的訊息 ----------
 
-  private receive(message: Message): void {
-    if (!this.joined || this.known.has(message.id)) return;
+  /** 收到別人的訊息：格式不合格（parseMessage 回傳 null）就丟掉 */
+  private receive(message: Message | null): void {
+    if (!message || !this.joined || this.known.has(message.id)) return;
     this.known.set(message.id, message.created_at);
     this.emit('message.new', message);
   }
 
   /** 自己剛送出的訊息：伺服器確認後就直接通知畫面，不用等 Realtime 繞一圈 */
-  private acceptOwn(message: Message): void {
+  private acceptOwn(message: Message | null): SendResult {
+    if (!message) return { ok: false, message: '伺服器回傳的訊息格式不正確，請再試一次' };
     this.receive(message);
+    return { ok: true };
   }
 
   private async handleInsertError(id: string, error: { code?: string; message?: string }): Promise<SendResult> {
     // 重送時，上一次其實已經成功（只是回應沒收到）：編號重複，當作成功
     if (error.code === '23505') {
       const { data } = await this.client.from('messages').select(MESSAGE_COLUMNS).eq('id', id).maybeSingle();
-      if (data) this.acceptOwn(toMessage(data as Record<string, unknown>));
+      if (data) return this.acceptOwn(parseMessage(data));
       return { ok: true };
     }
     return { ok: false, message: describeSendError(error) };
@@ -405,7 +396,7 @@ export class SupabaseChatService implements ChatService {
     }
 
     const fetched = new Set(rows.map((row) => String(row.id)));
-    for (const row of rows) this.receive(toMessage(row));
+    for (const row of rows) this.receive(parseMessage(row));
     // 太多筆時查不完整，不判斷刪除，免得誤刪
     if (!since || rows.length >= CATCH_UP_LIMIT) return;
     for (const [id] of recent) {
