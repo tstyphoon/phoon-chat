@@ -40,7 +40,13 @@ export class SendGuard {
   private lastSentAt = 0;
   private recent: { key: string; at: number }[] = [];
 
-  check(text: string, now: number = Date.now()): TextCheck {
+  /** 距離可以送出下一則，還要等幾毫秒（0 表示現在就可以送） */
+  waitMs(now: number = Date.now()): number {
+    return Math.max(0, this.lastSentAt + CONFIG.message.minIntervalMs - now);
+  }
+
+  /** `ignoreRate`：不檢查「距離上一則太近」（呼叫的人會自己等到間隔夠了才送出） */
+  check(text: string, now: number = Date.now(), options: { ignoreRate?: boolean } = {}): TextCheck {
     const trimmed = text.trim();
     if (trimmed === '') {
       return { ok: false, code: 'empty', message: '請輸入訊息' };
@@ -48,7 +54,7 @@ export class SendGuard {
     if (countChars(trimmed) > CONFIG.message.maxLength) {
       return { ok: false, code: 'too_long', message: `訊息最多 ${CONFIG.message.maxLength} 個字` };
     }
-    if (now - this.lastSentAt < CONFIG.message.minIntervalMs) {
+    if (!options.ignoreRate && now - this.lastSentAt < CONFIG.message.minIntervalMs) {
       return { ok: false, code: 'too_fast', message: '送太快了，請稍等一下' };
     }
     if (hasExcessiveRepeat(trimmed)) {
@@ -64,16 +70,16 @@ export class SendGuard {
     return { ok: true };
   }
 
-  /** 訊息真的送出去之後呼叫，用來計算頻率與重複 */
+  /** 訊息送出（或排好送出時間）之後呼叫，用來計算頻率與重複；`now` 可以是排定要送出的時間 */
   record(text: string, now: number = Date.now()): void {
-    this.lastSentAt = now;
+    this.lastSentAt = Math.max(this.lastSentAt, now);
     this.recent = this.recent.filter((item) => now - item.at <= CONFIG.message.sameContentWindowMs);
     this.recent.push({ key: contentKey(text), at: now });
   }
 
   /** 圖片也算一次發送，用於頻率限制 */
   recordAny(now: number = Date.now()): void {
-    this.lastSentAt = now;
+    this.lastSentAt = Math.max(this.lastSentAt, now);
   }
 
   checkRate(now: number = Date.now()): TextCheck {

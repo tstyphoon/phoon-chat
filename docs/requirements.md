@@ -36,7 +36,10 @@
 | 分頁標題顯示未讀數 | 頁面在背景時，收到別人的訊息會讓分頁標題變成「(3) phoon-chat」，回到頁面後清掉 | `src/hooks/useUnreadTitle.ts` |
 | 手動切換外觀 | 深色、淺色、跟隨系統三種，選擇記在自己的瀏覽器；手機上是一顆按鈕依序切換 | `src/hooks/useTheme.ts` |
 | 網址自動轉成可點連結 | 訊息裡 `http://`、`https://` 開頭的網址會變成連結，在新分頁開啟。其餘一律當純文字顯示，訊息裡的 HTML 不會被執行 | `src/components/MessageBody.tsx` |
+| 送太快時自動排隊 | 兩則訊息間隔不到 1 秒時，第二則不會被丟掉：馬上顯示「傳送中…」，等滿 1 秒後自動送出，輸入框已清空。連續狂按超過約 3 秒的排隊範圍，才提示「送太快了，請稍等一下」並保留輸入內容 | `src/hooks/useChat.ts`、`src/rules/message.ts` |
 | 往上捲載入更早的歷史訊息 | 一次載入 50 則，往上捲到頂端會自動再載入；看舊訊息時有新訊息進來不會把畫面拉走，只顯示「有 N 則新訊息」按鈕 | `src/components/MessageList.tsx`、`src/hooks/useChat.ts` |
+| 送不出去的訊息點一下重送 | 網路不穩、斷線時送出的訊息會標示「未送出，點一下重送」，點一下用同一個編號重送，不會變成兩則 | `src/components/MessageList.tsx`、`src/hooks/useChat.ts` |
+| 拖曳圖片的提示 | 把圖片拖進聊天室畫面時，蓋上一層「放開以上傳圖片」的提示，放開後進入預覽 | `src/screens/ChatScreen.tsx` |
 | 圖片預覽與放大 | 選好圖片後送出前先看預覽；收到的圖片點一下可以放大，按 Esc 或點背景關閉 | `src/components/Composer.tsx`、`src/components/Dialogs.tsx` |
 
 ### 和所有人即時同步的功能

@@ -80,6 +80,30 @@ describe('發送限制', () => {
     expect(guard.check('b', 11_000).ok).toBe(true);
   });
 
+  it('算得出還要等多久才能送下一則，排定的送出時間也算數', () => {
+    const guard = new SendGuard();
+    expect(guard.waitMs(10_000)).toBe(0);
+    guard.record('a', 10_000);
+    expect(guard.waitMs(10_300)).toBe(700);
+    expect(guard.waitMs(11_000)).toBe(0);
+    // 排好在 11_000 送出的第二則，第三則要再等到 12_000
+    guard.record('b', 11_000);
+    expect(guard.waitMs(10_400)).toBe(1_600);
+    // 先送的不會被後來的往前拉：lastSentAt 不會倒退
+    guard.record('c', 10_200);
+    expect(guard.waitMs(10_400)).toBe(1_600);
+  });
+
+  it('排隊送出時可以略過「太快」的檢查，其他規則（空白、太長、重複）照樣擋', () => {
+    const guard = new SendGuard();
+    guard.record('a', 10_000);
+    expect(guard.check('b', 10_100).ok).toBe(false);
+    expect(guard.check('b', 11_000, { ignoreRate: true }).ok).toBe(true);
+    expect(guard.check('b', 10_100, { ignoreRate: true }).ok).toBe(true);
+    expect(guard.check('   ', 10_100, { ignoreRate: true }).ok).toBe(false);
+    expect(guard.check('你好'.repeat(11), 10_100, { ignoreRate: true }).ok).toBe(false);
+  });
+
   it('30 秒內相同內容：第 5 則可以送，第 6 則被擋', () => {
     const guard = new SendGuard();
     let now = 1_000_000;

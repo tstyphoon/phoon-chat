@@ -53,17 +53,44 @@ describe('整個流程（階段一，假後端）', () => {
     expect(await screen.findByRole('button', { name: '進入聊天室' })).toBeTruthy();
   }, 20000);
 
-  it('太快送第二則會被擋並顯示提示', async () => {
+  it('太快送第二則不會被丟掉：自動排隊，等間隔夠了就送出，HTML 字串原樣顯示成文字', async () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(screen.getByLabelText('你的代號'), 'Amy2');
     await user.click(screen.getByRole('button', { name: '進入聊天室' }));
     const box = await screen.findByLabelText('訊息內容', {}, { timeout: 3000 });
+    const html = '<b>x</b><img src=x onerror=alert(1)>';
 
     await user.type(box, '第一則');
     await user.click(screen.getByRole('button', { name: '送出' }));
-    await user.type(box, '第二則');
+    // 馬上送第二則（不到 1 秒）：不會被擋，輸入框清空，自動排隊
+    await user.type(box, html);
     await user.click(screen.getByRole('button', { name: '送出' }));
+    expect((box as HTMLTextAreaElement).value).toBe('');
+    expect(screen.queryByText('送太快了，請稍等一下')).toBeNull();
+
+    // 兩則都會出現，而且 HTML 是文字，沒有變成真的標籤
+    expect(await screen.findByText('第一則', {}, { timeout: 3000 })).toBeTruthy();
+    expect(await screen.findByText(html, {}, { timeout: 5000 })).toBeTruthy();
+    expect(document.querySelector('img[src="x"]')).toBeNull();
+    expect(screen.queryByText('x', { selector: 'b' })).toBeNull();
+    await waitFor(() => expect(screen.queryAllByText('傳送中…').length).toBe(0), { timeout: 5000 });
+  }, 20000);
+
+  it('連續狂按送出：最多排隊等 3 秒，再多就請使用者稍等，輸入內容保留', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(screen.getByLabelText('你的代號'), 'Amy3');
+    await user.click(screen.getByRole('button', { name: '進入聊天室' }));
+    const box = await screen.findByLabelText('訊息內容', {}, { timeout: 3000 });
+
+    const words = ['甲訊息', '乙訊息', '丙訊息', '丁訊息', '戊訊息'];
+    for (const word of words) {
+      await user.type(box, word);
+      await user.click(screen.getByRole('button', { name: '送出' }));
+    }
+    // 前面排得下的送出去了，排不下的會顯示提示，並保留輸入內容
     expect(await screen.findByText('送太快了，請稍等一下')).toBeTruthy();
+    expect((box as HTMLTextAreaElement).value).not.toBe('');
   }, 20000);
 });

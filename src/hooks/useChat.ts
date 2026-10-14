@@ -67,6 +67,8 @@ export function useChat(service: ChatService, options: Options = {}) {
   const leaveTimers = useRef(new Map<string, { userId: string; timer: ReturnType<typeof setTimeout> }>());
   const leftSessions = useRef(new Set<string>());
   const loadingOlderRef = useRef(false);
+  /** 送太快而排隊中的訊息：時間到了才會真的送出；離開聊天室時要全部取消 */
+  const queuedTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
   /** 目前名單的即時副本，事件處理函式要同步判斷「這個人還在不在名單裡」時使用 */
   const membersRef = useRef<PresenceMember[]>([]);
   const updateMembers = useCallback((update: (previous: PresenceMember[]) => PresenceMember[]) => {
@@ -81,6 +83,8 @@ export function useChat(service: ChatService, options: Options = {}) {
   const resetChat = useCallback(() => {
     leaveTimers.current.forEach((entry) => clearTimeout(entry.timer));
     leaveTimers.current.clear();
+    queuedTimers.current.forEach((timer) => clearTimeout(timer));
+    queuedTimers.current.clear();
     leftSessions.current.clear();
     setPending((previous) => {
       previous.forEach((item) => item.previewUrl && URL.revokeObjectURL(item.previewUrl));
@@ -255,7 +259,12 @@ export function useChat(service: ChatService, options: Options = {}) {
 
   const sendText = useCallback(
     (text: string): SubmitResult => {
-      const check = guard.current.check(text);
+      // 送太快時不直接拒絕：排隊等間隔夠了再自動送出（等太久才請使用者稍等）
+      const now = Date.now();
+      const wait = guard.current.waitMs(now);
+      if (wait > CONFIG.message.maxQueueWaitMs) return { ok: false, message: '送太快了，請稍等一下' };
+      const sendAt = now + wait;
+      const check = guard.current.check(text, sendAt, { ignoreRate: true });
       if (!check.ok) return { ok: false, message: check.message };
       const body = text.trim();
       const item: PendingMessage = {
@@ -267,11 +276,19 @@ export function useChat(service: ChatService, options: Options = {}) {
         file: null,
         previewUrl: null,
         status: 'sending',
-        created: Date.now(),
+        created: sendAt,
       };
-      guard.current.record(body);
+      guard.current.record(body, sendAt);
       setPending((previous) => [...previous, item]);
-      void deliver(item);
+      if (wait === 0) {
+        void deliver(item);
+      } else {
+        const timer = setTimeout(() => {
+          queuedTimers.current.delete(timer);
+          void deliver(item);
+        }, wait);
+        queuedTimers.current.add(timer);
+      }
       return { ok: true };
     },
     [service, me, deliver],

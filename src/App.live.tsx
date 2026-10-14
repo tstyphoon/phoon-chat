@@ -53,4 +53,42 @@ describe('畫面接上 Supabase', () => {
     expect(await screen.findByRole('button', { name: '進入聊天室' })).toBeTruthy();
     expect((screen.getByLabelText('你的代號') as HTMLInputElement).value).toBe(nickname);
   }, 90000);
+
+  it('連續很快送兩則：自動排隊，兩則都送達（資料庫的頻率限制不會擋），HTML 原樣顯示成文字', async () => {
+    const user = userEvent.setup();
+    const nickname = `畫面測試${newId().slice(0, 4)}`;
+    const first = `連續測試甲${newId().slice(0, 6)}`;
+    const html = `<b>x</b><img src=x onerror=alert(1)>${newId().slice(0, 4)}`;
+    render(<App />);
+
+    // 輸入框會預先填入上一個測試記住的代號，先清掉再輸入
+    await user.clear(screen.getByLabelText('你的代號'));
+    await user.type(screen.getByLabelText('你的代號'), nickname);
+    await user.click(screen.getByRole('button', { name: '進入聊天室' }));
+    const box = await screen.findByLabelText('訊息內容', {}, { timeout: 20000 });
+    await waitFor(() => expect(screen.queryAllByText('載入最近的訊息…').length).toBe(0), { timeout: 10000 });
+
+    await user.type(box, first);
+    await user.click(screen.getByRole('button', { name: '送出' }));
+    await user.type(box, html);
+    await user.click(screen.getByRole('button', { name: '送出' }));
+
+    expect(await screen.findByText(first, {}, { timeout: 10000 })).toBeTruthy();
+    expect(await screen.findByText(html, {}, { timeout: 10000 })).toBeTruthy();
+    await waitFor(() => expect(screen.queryAllByText('傳送中…').length).toBe(0), { timeout: 10000 });
+    expect(screen.queryAllByText(/未送出/).length).toBe(0);
+    expect(document.querySelector('img[src="x"]')).toBeNull();
+
+    // 清掉測試訊息
+    for (const text of [html, first]) {
+      const line = screen.getByText(text).closest('.line') as HTMLElement;
+      const remove = line.querySelector('button[aria-label="刪除這則訊息"]') as HTMLElement;
+      await user.click(remove);
+      await user.click(screen.getByRole('button', { name: '刪除' }));
+      await waitFor(() => expect(screen.queryByText(text)).toBeNull(), { timeout: 10000 });
+    }
+
+    await user.click(screen.getAllByRole('button', { name: /^離開/ })[0]);
+    expect(await screen.findByRole('button', { name: '進入聊天室' })).toBeTruthy();
+  }, 90000);
 });
